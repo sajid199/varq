@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Merriweather:wght@400;700&family=Lora:ital,wght@0,400;0,600;1,400&family=EB+Garamond:wght@400;600&family=Crimson+Pro:wght@400;600&family=Atkinson+Hyperlegible:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Merriweather:wght@400;700&family=Lora:ital,wght@0,400;0,600;1,400&family=EB+Garamond:wght@400;600&family=Crimson+Pro:wght@400;600&family=Atkinson+Hyperlegible:wght@400;700&family=Inter:wght@400;500;600&family=Noto+Serif+Devanagari:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Hind:wght@400;600;700&family=Tiro+Devanagari+Hindi&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root{
@@ -217,7 +217,7 @@
     color: var(--ink);
     background: var(--page);
   }
-  #columnsTrack p{ margin:0 0 1em; text-indent: 1.4em; }
+  #columnsTrack p{ margin:0 0 1em; text-indent: 1.4em; overflow-wrap: break-word; word-break: normal; }
   #columnsTrack p:first-child{ margin-top:0; }
 
   .tap-zone{ position:absolute; top:0; bottom:0; width:28%; z-index:3; }
@@ -315,9 +315,7 @@
     font-family:var(--ui-font); font-weight:600; font-size:15px; cursor:pointer;
   }
 
-  @media (min-width: 700px){
-    #columnsTrack{ column-count:2; }
-  }
+  #pageClip{ margin: 0 auto; }
 </style>
 </head>
 <body data-theme="day">
@@ -424,7 +422,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
 
 const state = {
   paragraphs: [],
-  fontFamily: "'Lora', serif",
+  fontFamily: "'Noto Serif Devanagari', 'Lora', serif",
   fontSize: 19,
   lineHeight: 1.8,
   theme: 'day',
@@ -434,12 +432,15 @@ const state = {
 };
 
 const FONTS = [
-  {name:'Lora', label:'Lora', css:"'Lora', serif"},
-  {name:'Merriweather', label:'Merriweather', css:"'Merriweather', serif"},
-  {name:'Garamond', label:'Garamond', css:"'EB Garamond', serif"},
-  {name:'Crimson', label:'Crimson', css:"'Crimson Pro', serif"},
-  {name:'Georgia', label:'Georgia', css:"Georgia, serif"},
-  {name:'Hyperlegible', label:'Easy-Read', css:"'Atkinson Hyperlegible', sans-serif"},
+  {name:'NotoSerifDev', label:'Hindi Serif', css:"'Noto Serif Devanagari', 'Lora', serif"},
+  {name:'Hind', label:'Hindi Sans', css:"'Hind', 'Noto Sans Devanagari', sans-serif"},
+  {name:'TiroDev', label:'Hindi Classic', css:"'Tiro Devanagari Hindi', 'Noto Serif Devanagari', serif"},
+  {name:'Lora', label:'Lora', css:"'Lora', 'Noto Serif Devanagari', serif"},
+  {name:'Merriweather', label:'Merriweather', css:"'Merriweather', 'Noto Serif Devanagari', serif"},
+  {name:'Garamond', label:'Garamond', css:"'EB Garamond', 'Noto Serif Devanagari', serif"},
+  {name:'Crimson', label:'Crimson', css:"'Crimson Pro', 'Noto Serif Devanagari', serif"},
+  {name:'Georgia', label:'Georgia', css:"Georgia, 'Noto Serif Devanagari', serif"},
+  {name:'Hyperlegible', label:'Easy-Read', css:"'Atkinson Hyperlegible', 'Noto Sans Devanagari', sans-serif"},
 ];
 
 const els = {
@@ -608,12 +609,12 @@ let colWidth = 0;
 function paginate(){
   const clip = els.pageClip;
   const track = els.columnsTrack;
-  const cw = window.innerWidth >= 700 ? clip.clientWidth : clip.clientWidth;
-  const singleCol = window.innerWidth < 700;
+  const cw = clip.clientWidth;
 
   track.style.height = clip.clientHeight + 'px';
   track.style.width = cw + 'px';
-  track.style.columnWidth = singleCol ? cw + 'px' : ((cw-48)/2)+'px';
+  track.style.columnWidth = cw + 'px';
+  track.style.columnGap = '0px';
   track.style.transform = 'translateX(0px)';
 
   colWidth = cw;
