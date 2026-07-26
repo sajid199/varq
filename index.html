@@ -220,6 +220,20 @@
   #columnsTrack p{ margin:0 0 1em; text-indent: 1.4em; overflow-wrap: break-word; word-break: normal; }
   #columnsTrack p:first-child{ margin-top:0; }
 
+  #imageStage{
+    display:none; position:absolute; inset:0; background: var(--page);
+    align-items:center; justify-content:center;
+  }
+  #imageStage.active{ display:flex; }
+  #pageImg{ max-width:100%; max-height:100%; object-fit:contain; user-select:none; -webkit-user-drag:none; }
+  [data-theme="night"] #pageImg{ filter: invert(1) hue-rotate(180deg) brightness(0.92); }
+  #imgLoading{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    font-family:var(--ui-font); font-size:12.5px; color:var(--ink-soft);
+    display:none; z-index:2;
+  }
+  #imgLoading.active{ display:block; }
+
   .tap-zone{ position:absolute; top:0; bottom:0; width:28%; z-index:3; }
   .tap-zone.left{ left:0; }
   .tap-zone.right{ right:0; }
@@ -364,10 +378,12 @@
     <div id="pageViewport">
       <div id="pageClip">
         <div id="columnsTrack"></div>
+        <div id="imageStage"><img id="pageImg" alt="PDF page"></div>
         <div class="tap-zone left" id="tapLeft"></div>
         <div class="tap-zone right" id="tapRight"></div>
         <div id="curl"></div>
       </div>
+      <div id="imgLoading">Page load ho rahi hai…</div>
     </div>
 
     <div id="footerBar">
@@ -383,6 +399,17 @@
   <div id="settingsSheet">
     <div class="grabber"></div>
     <div class="sheet-title">Padhne ki Setting</div>
+
+    <div class="setting-group">
+      <div class="setting-label">Padhne ka Tarika</div>
+      <div class="theme-row" id="modeRow">
+        <div class="theme-swatch active" data-m="text" style="background:var(--page);color:var(--ink)">Text (Font Badlein)</div>
+        <div class="theme-swatch" data-m="image" style="background:var(--page);color:var(--ink)">Original Look</div>
+      </div>
+      <div style="font-size:11.5px;color:var(--ink-soft);margin-top:8px;line-height:1.5;">
+        Agar Hindi text galat/ajeeb dikhe, to "Original Look" chuno — ye PDF ko hubahu (image ki tarah) dikhata hai, bilkul sahi, bas font size badal nahi sakoge.
+      </div>
+    </div>
 
     <div class="setting-group">
       <div class="setting-label">Font Style</div>
@@ -428,7 +455,12 @@ const state = {
   theme: 'day',
   currentPage: 0,
   totalPages: 1,
-  fileName: 'Kitaab'
+  fileName: 'Kitaab',
+  mode: 'text',
+  pdfDoc: null,
+  pdfNumPages: 1,
+  imgPage: 1,
+  imgCache: {}
 };
 
 const FONTS = [
@@ -470,6 +502,10 @@ const els = {
   lineHeightSlider: document.getElementById('lineHeightSlider'),
   tapLeft: document.getElementById('tapLeft'),
   tapRight: document.getElementById('tapRight'),
+  imageStage: document.getElementById('imageStage'),
+  pageImg: document.getElementById('pageImg'),
+  imgLoading: document.getElementById('imgLoading'),
+  columnsTrackEl: document.getElementById('columnsTrack'),
 };
 
 // ---- Build font picker ----
@@ -482,33 +518,44 @@ FONTS.forEach(f=>{
     document.querySelectorAll('.font-option').forEach(o=>o.classList.remove('active'));
     div.classList.add('active');
     applyReaderStyles();
-    paginate();
+    if(state.mode === "text") paginate();
   });
   els.fontGrid.appendChild(div);
 });
 
-document.querySelectorAll('.theme-swatch').forEach(sw=>{
+document.querySelectorAll('.theme-swatch[data-t]').forEach(sw=>{
   sw.addEventListener('click', ()=>{
     state.theme = sw.dataset.t;
     document.body.setAttribute('data-theme', state.theme);
-    document.querySelectorAll('.theme-swatch').forEach(s=>s.classList.remove('active'));
+    document.querySelectorAll('.theme-swatch[data-t]').forEach(s=>s.classList.remove('active'));
     sw.classList.add('active');
+  });
+});
+
+document.querySelectorAll('.theme-swatch[data-m]').forEach(sw=>{
+  sw.addEventListener('click', ()=>{
+    const newMode = sw.dataset.m;
+    if(newMode === state.mode) return;
+    state.mode = newMode;
+    document.querySelectorAll('.theme-swatch[data-m]').forEach(s=>s.classList.remove('active'));
+    sw.classList.add('active');
+    switchMode();
   });
 });
 
 els.fontDec.addEventListener('click', ()=>{
   state.fontSize = Math.max(13, state.fontSize - 1);
   els.fontSizeVal.textContent = state.fontSize + 'px';
-  applyReaderStyles(); paginate();
+  applyReaderStyles(); if(state.mode==="text") paginate();
 });
 els.fontInc.addEventListener('click', ()=>{
   state.fontSize = Math.min(30, state.fontSize + 1);
   els.fontSizeVal.textContent = state.fontSize + 'px';
-  applyReaderStyles(); paginate();
+  applyReaderStyles(); if(state.mode==="text") paginate();
 });
 els.lineHeightSlider.addEventListener('input', (e)=>{
   state.lineHeight = e.target.value/100;
-  applyReaderStyles(); paginate();
+  applyReaderStyles(); if(state.mode==="text") paginate();
 });
 
 function applyReaderStyles(){
@@ -548,6 +595,9 @@ async function loadPdf(file){
 
   const buf = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+  state.pdfDoc = pdf;
+  state.pdfNumPages = pdf.numPages;
+  state.imgCache = {};
   const numPages = pdf.numPages;
   let fullText = [];
 
@@ -593,9 +643,67 @@ function openReader(){
   els.docTitle.textContent = state.fileName;
   els.cover.style.display = 'none';
   els.reader.style.display = 'flex';
+  state.mode = 'text';
+  state.imgPage = 1;
+  document.querySelectorAll('.theme-swatch[data-m]').forEach(s=>s.classList.remove('active'));
+  document.querySelector('.theme-swatch[data-m="text"]').classList.add('active');
   applyReaderStyles();
   renderContent();
-  requestAnimationFrame(()=> requestAnimationFrame(paginate));
+  switchMode();
+}
+
+function switchMode(){
+  if(state.mode === 'text'){
+    els.imageStage.classList.remove('active');
+    els.columnsTrackEl.style.display = '';
+    requestAnimationFrame(()=> requestAnimationFrame(paginate));
+  } else {
+    els.columnsTrackEl.style.display = 'none';
+    els.imageStage.classList.add('active');
+    state.totalPages = state.pdfNumPages;
+    goToImagePage(state.imgPage);
+  }
+}
+
+async function goToImagePage(n){
+  n = Math.max(1, Math.min(state.pdfNumPages, n));
+  state.imgPage = n;
+  state.currentPage = n - 1;
+  updateFooter();
+
+  if(state.imgCache[n]){
+    els.pageImg.src = state.imgCache[n];
+    return;
+  }
+  els.imgLoading.classList.add('active');
+  try{
+    const page = await state.pdfDoc.getPage(n);
+    const baseViewport = page.getViewport({scale:1});
+    const targetW = els.pageClip.clientWidth * (window.devicePixelRatio || 1.5);
+    const scale = targetW / baseViewport.width;
+    const viewport = page.getViewport({scale});
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d');
+    await page.render({canvasContext: ctx, viewport}).promise;
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+    state.imgCache[n] = dataUrl;
+    if(state.imgPage === n){ els.pageImg.src = dataUrl; }
+  } catch(err){
+    console.error('Page render error', err);
+  } finally {
+    els.imgLoading.classList.remove('active');
+  }
+}
+
+function updateFooter(){
+  const n = state.mode === 'text' ? state.currentPage : state.imgPage - 1;
+  const total = state.mode === 'text' ? state.totalPages : state.pdfNumPages;
+  els.pageLabel.textContent = `Page ${n+1} / ${total}`;
+  const pct = total > 1 ? Math.round((n/(total-1))*100) : 100;
+  els.percentLabel.textContent = pct + '%';
+  els.progressFill.style.width = pct + '%';
 }
 
 function renderContent(){
@@ -628,14 +736,20 @@ function goToPage(n){
   n = Math.max(0, Math.min(state.totalPages - 1, n));
   state.currentPage = n;
   els.columnsTrack.style.transform = `translateX(-${n * colWidth}px)`;
-  els.pageLabel.textContent = `Page ${n+1} / ${state.totalPages}`;
-  const pct = state.totalPages > 1 ? Math.round((n/(state.totalPages-1))*100) : 100;
-  els.percentLabel.textContent = pct + '%';
-  els.progressFill.style.width = pct + '%';
+  updateFooter();
 }
 
-els.tapLeft.addEventListener('click', ()=> goToPage(state.currentPage - 1));
-els.tapRight.addEventListener('click', ()=> goToPage(state.currentPage + 1));
+function goNext(){
+  if(state.mode === 'text') goToPage(state.currentPage + 1);
+  else goToImagePage(state.imgPage + 1);
+}
+function goPrev(){
+  if(state.mode === 'text') goToPage(state.currentPage - 1);
+  else goToImagePage(state.imgPage - 1);
+}
+
+els.tapLeft.addEventListener('click', goPrev);
+els.tapRight.addEventListener('click', goNext);
 
 // swipe support
 let touchStartX = null;
@@ -644,26 +758,30 @@ els.pageClip.addEventListener('touchend', e=>{
   if(touchStartX === null) return;
   const dx = e.changedTouches[0].clientX - touchStartX;
   if(Math.abs(dx) > 40){
-    if(dx < 0) goToPage(state.currentPage + 1);
-    else goToPage(state.currentPage - 1);
+    if(dx < 0) goNext();
+    else goPrev();
   }
   touchStartX = null;
 }, {passive:true});
 
 document.addEventListener('keydown', e=>{
   if(els.reader.style.display !== 'flex') return;
-  if(e.key === 'ArrowRight') goToPage(state.currentPage + 1);
-  if(e.key === 'ArrowLeft') goToPage(state.currentPage - 1);
+  if(e.key === 'ArrowRight') goNext();
+  if(e.key === 'ArrowLeft') goPrev();
 });
 
 els.progressTrack.addEventListener('click', (e)=>{
   const rect = els.progressTrack.getBoundingClientRect();
   const ratio = (e.clientX - rect.left) / rect.width;
-  goToPage(Math.round(ratio * (state.totalPages-1)));
+  if(state.mode === 'text'){
+    goToPage(Math.round(ratio * (state.totalPages-1)));
+  } else {
+    goToImagePage(Math.round(ratio * (state.pdfNumPages-1)) + 1);
+  }
 });
 
 window.addEventListener('resize', ()=>{
-  if(els.reader.style.display === 'flex') paginate();
+  if(els.reader.style.display === 'flex' && state.mode === 'text') paginate();
 });
 </script>
 </body>
