@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Varq — Apni PDF ko Kitaab ki Tarah Padhein</title>
+<meta name="theme-color" content="#7A2E2E">
+<meta name="description" content="Apni PDF ko kitaab ki tarah padhein — font, size aur theme apni marzi ki.">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Merriweather:wght@400;700&family=Lora:ital,wght@0,400;0,600;1,400&family=EB+Garamond:wght@400;600&family=Crimson+Pro:wght@400;600&family=Atkinson+Hyperlegible:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    --ui-font: 'Inter', system-ui, sans-serif;
+    --display-font: 'Fraunces', serif;
+
+    /* Day theme */
+    --day-bg: #FAF6EE;
+    --day-page: #FBF8F1;
+    --day-ink: #2B2118;
+    --day-ink-soft: #6B5D4F;
+    --day-ribbon: #7A2E2E;
+    --day-ribbon-light: #A6534F;
+    --day-border: rgba(43,33,24,0.12);
+
+    /* Sepia theme */
+    --sep-bg: #E9DCBB;
+    --sep-page: #EFE0C3;
+    --sep-ink: #4A3728;
+    --sep-ink-soft: #7A6650;
+    --sep-ribbon: #8C4A2F;
+    --sep-ribbon-light: #B06E4D;
+    --sep-border: rgba(74,55,40,0.15);
+
+    /* Night theme */
+    --nig-bg: #14100C;
+    --nig-page: #1B1712;
+    --nig-ink: #E8DFC9;
+    --nig-ink-soft: #A99C86;
+    --nig-ribbon: #B5654F;
+    --nig-ribbon-light: #D18569;
+    --nig-border: rgba(232,223,201,0.12);
+
+    --bg: var(--day-bg);
+    --page: var(--day-page);
+    --ink: var(--day-ink);
+    --ink-soft: var(--day-ink-soft);
+    --ribbon: var(--day-ribbon);
+    --ribbon-light: var(--day-ribbon-light);
+    --border: var(--day-border);
+
+    --reader-font: 'Lora', serif;
+    --reader-size: 19px;
+    --reader-lh: 1.8;
+  }
+
+  [data-theme="sepia"]{
+    --bg: var(--sep-bg); --page: var(--sep-page); --ink: var(--sep-ink);
+    --ink-soft: var(--sep-ink-soft); --ribbon: var(--sep-ribbon); --ribbon-light: var(--sep-ribbon-light);
+    --border: var(--sep-border);
+  }
+  [data-theme="night"]{
+    --bg: var(--nig-bg); --page: var(--nig-page); --ink: var(--nig-ink);
+    --ink-soft: var(--nig-ink-soft); --ribbon: var(--nig-ribbon); --ribbon-light: var(--nig-ribbon-light);
+    --border: var(--nig-border);
+  }
+
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family: var(--ui-font);
+    overflow:hidden;
+    transition: background .4s ease, color .4s ease;
+  }
+  #app{ height:100dvh; width:100vw; position:relative; }
+
+  /* ---------- COVER / UPLOAD SCREEN ---------- */
+  #cover{
+    height:100%; width:100%; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; padding:32px;
+    position:relative;
+    background:
+      radial-gradient(ellipse at top, rgba(122,46,46,0.06), transparent 60%),
+      var(--bg);
+  }
+  .brandmark{
+    display:flex; align-items:center; gap:10px; margin-bottom:38px;
+  }
+  .brandmark .spine{
+    width:7px; height:34px; border-radius:2px;
+    background: linear-gradient(180deg, var(--ribbon-light), var(--ribbon));
+  }
+  .brandmark span{
+    font-family:var(--display-font); font-weight:700; font-size:26px; letter-spacing:0.5px;
+  }
+  .book-object{
+    width: min(78vw, 260px);
+    aspect-ratio: 3/4;
+    position:relative;
+    margin-bottom: 34px;
+    perspective: 1400px;
+  }
+  .book-cover-art{
+    position:absolute; inset:0;
+    border-radius: 3px 10px 10px 3px;
+    background: linear-gradient(135deg, var(--ribbon) 0%, #5c2222 100%);
+    box-shadow:
+      0 22px 40px -12px rgba(0,0,0,0.45),
+      inset -6px 0 12px rgba(0,0,0,0.25),
+      inset 3px 0 0 rgba(255,255,255,0.08);
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+    animation: coverBreathe 5s ease-in-out infinite;
+  }
+  @keyframes coverBreathe{
+    0%,100%{ transform: rotateY(0deg); }
+    50%{ transform: rotateY(-4deg); }
+  }
+  .book-cover-art::before{
+    content:''; position:absolute; left:0; top:6px; bottom:6px; width:10px;
+    background: rgba(0,0,0,0.18); border-radius: 3px 0 0 3px;
+  }
+  .book-cover-art .title-line{
+    width:58%; height:2px; background:rgba(255,255,255,0.55); margin:5px 0;
+  }
+  .book-cover-art .icon{
+    width:44px; height:44px; margin-bottom:14px; opacity:.9;
+  }
+  .cover-caption{
+    font-family:var(--display-font); font-size: 15px; color: rgba(255,255,255,0.85);
+    letter-spacing: 1.5px; text-transform: uppercase; margin-top: 6px;
+  }
+
+  h1.tagline{
+    font-family:var(--display-font); font-weight:600; font-size: clamp(22px,5vw,30px);
+    text-align:center; margin:0 0 10px; max-width:340px; line-height:1.3;
+  }
+  p.subtag{
+    font-family:var(--ui-font); color:var(--ink-soft); text-align:center;
+    max-width: 320px; font-size:14.5px; line-height:1.6; margin:0 0 30px;
+  }
+
+  #dropzone{
+    border: 1.5px dashed var(--ribbon);
+    border-radius: 14px;
+    padding: 16px 26px;
+    display:flex; align-items:center; gap:10px;
+    cursor:pointer; background: color-mix(in srgb, var(--ribbon) 6%, transparent);
+    transition: transform .15s ease, background .2s ease;
+    font-family: var(--ui-font); font-weight:600; font-size:15px; color:var(--ribbon);
+  }
+  #dropzone:active{ transform: scale(0.97); }
+  #dropzone svg{ width:20px; height:20px; flex-shrink:0; }
+  #fileInput{ display:none; }
+
+  #loadProgress{
+    margin-top: 22px; width: min(78vw,260px); display:none;
+  }
+  #loadProgress .track{
+    height:4px; border-radius:2px; background:var(--border); overflow:hidden;
+  }
+  #loadProgress .fill{
+    height:100%; width:0%; background: linear-gradient(90deg,var(--ribbon-light),var(--ribbon));
+    transition: width .2s ease;
+  }
+  #loadProgress .label{
+    margin-top:8px; font-size:12.5px; color:var(--ink-soft); text-align:center;
+  }
+
+  /* ---------- READER SCREEN ---------- */
+  #reader{
+    height:100%; width:100%; display:none;
+    flex-direction:column;
+    background: var(--bg);
+  }
+  #ribbonBar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: env(safe-area-inset-top,10px) 14px 10px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    z-index: 5;
+  }
+  #ribbonBar button.icon-btn{
+    background:none; border:none; padding:8px; cursor:pointer;
+    color: var(--ink); opacity:0.75; display:flex; align-items:center; justify-content:center;
+    border-radius:8px;
+  }
+  #ribbonBar button.icon-btn:active{ background: var(--border); }
+  #ribbonBar .icon-btn svg{ width:20px; height:20px; }
+  #docTitle{
+    font-family: var(--display-font); font-size:14px; font-weight:600;
+    max-width: 55vw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    color: var(--ink-soft); text-align:center;
+  }
+
+  #pageViewport{
+    flex:1; position:relative; overflow:hidden;
+    display:flex; align-items:stretch; justify-content:center;
+  }
+  #pageClip{
+    position:relative; height:100%; width:100%; max-width: 760px;
+    overflow:hidden;
+  }
+  #columnsTrack{
+    position:absolute; top:0; left:0; height:100%;
+    will-change: transform;
+    transition: transform .38s cubic-bezier(.22,.68,0,1);
+    column-gap: 48px;
+    padding: 26px 26px 34px;
+    font-family: var(--reader-font);
+    font-size: var(--reader-size);
+    line-height: var(--reader-lh);
+    color: var(--ink);
+    background: var(--page);
+  }
+  #columnsTrack p{ margin:0 0 1em; text-indent: 1.4em; }
+  #columnsTrack p:first-child{ margin-top:0; }
+
+  .tap-zone{ position:absolute; top:0; bottom:0; width:28%; z-index:3; }
+  .tap-zone.left{ left:0; }
+  .tap-zone.right{ right:0; }
+
+  #curl{
+    position:absolute; bottom:0; right:0; width:38px; height:38px;
+    background: linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.10) 50%);
+    pointer-events:none; z-index:4; opacity:0.6;
+  }
+
+  #footerBar{
+    padding: 8px 18px calc(10px + env(safe-area-inset-bottom,0px));
+    background: var(--bg); border-top: 1px solid var(--border);
+    display:flex; flex-direction:column; gap:6px;
+  }
+  #progressTrack{
+    height:3px; border-radius:2px; background: var(--border); overflow:hidden; cursor:pointer;
+  }
+  #progressFill{
+    height:100%; width:0%; background: linear-gradient(90deg,var(--ribbon-light),var(--ribbon));
+  }
+  #footerLabels{
+    display:flex; justify-content:space-between; font-size:11px; color: var(--ink-soft);
+    font-family: var(--ui-font);
+  }
+
+  /* ---------- SETTINGS SHEET ---------- */
+  #overlay{
+    position:absolute; inset:0; background:rgba(0,0,0,0.35); z-index:10;
+    display:none; opacity:0; transition: opacity .25s ease;
+  }
+  #settingsSheet{
+    position:absolute; left:0; right:0; bottom:0; z-index:11;
+    background: var(--bg); border-radius:20px 20px 0 0;
+    padding: 10px 22px calc(22px + env(safe-area-inset-bottom,0px));
+    transform: translateY(100%); transition: transform .32s cubic-bezier(.22,.68,0,1);
+    box-shadow: 0 -20px 50px rgba(0,0,0,0.25);
+    max-height: 82vh; overflow-y:auto;
+  }
+  #settingsSheet.open{ transform: translateY(0); }
+  #overlay.open{ display:block; opacity:1; }
+  .grabber{ width:38px; height:4px; border-radius:3px; background:var(--border); margin: 8px auto 18px; }
+
+  .sheet-title{
+    font-family:var(--display-font); font-weight:700; font-size:19px; margin: 0 0 18px;
+  }
+  .setting-group{ margin-bottom: 22px; }
+  .setting-label{
+    font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--ink-soft);
+    margin-bottom: 10px; font-weight:600;
+  }
+  .font-grid{ display:grid; grid-template-columns: repeat(2,1fr); gap:10px; }
+  .font-option{
+    border:1.5px solid var(--border); border-radius:12px; padding: 12px 10px;
+    text-align:center; cursor:pointer; font-size:16px; color:var(--ink);
+    background:var(--page);
+  }
+  .font-option.active{ border-color: var(--ribbon); box-shadow: 0 0 0 1px var(--ribbon) inset; }
+  .font-option .sample{ font-size:19px; display:block; margin-bottom:4px; }
+  .font-option .fname{ font-family:var(--ui-font); font-size:10.5px; color:var(--ink-soft); }
+
+  .stepper{ display:flex; align-items:center; gap:14px; }
+  .stepper button{
+    width:38px; height:38px; border-radius:50%; border:1.5px solid var(--border);
+    background:var(--page); color:var(--ink); font-size:18px; cursor:pointer;
+  }
+  .stepper .val{ font-family:var(--display-font); font-size:16px; min-width:60px; text-align:center; }
+
+  .theme-row{ display:flex; gap:12px; }
+  .theme-swatch{
+    flex:1; height:56px; border-radius:12px; cursor:pointer; position:relative;
+    border: 2px solid transparent; display:flex; align-items:flex-end; justify-content:center;
+    padding-bottom:6px; font-family:var(--ui-font); font-size:11px; font-weight:600;
+  }
+  .theme-swatch.active{ border-color: var(--ribbon); }
+  .theme-swatch[data-t="day"]{ background:var(--day-page); color:var(--day-ink); }
+  .theme-swatch[data-t="sepia"]{ background:var(--sep-page); color:var(--sep-ink); }
+  .theme-swatch[data-t="night"]{ background:var(--nig-page); color:var(--nig-ink); }
+
+  input[type=range]{
+    -webkit-appearance:none; width:100%; height:4px; border-radius:2px;
+    background: var(--border); outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:20px; height:20px; border-radius:50%;
+    background: var(--ribbon); cursor:pointer; border: 3px solid var(--page);
+    box-shadow:0 1px 4px rgba(0,0,0,0.3);
+  }
+
+  #closeSheetBtn{
+    display:block; width:100%; margin-top:6px; padding: 13px;
+    background: var(--ribbon); color:#fff; border:none; border-radius:12px;
+    font-family:var(--ui-font); font-weight:600; font-size:15px; cursor:pointer;
+  }
+
+  @media (min-width: 700px){
+    #columnsTrack{ column-count:2; }
+  }
+</style>
+</head>
+<body data-theme="day">
+<div id="app">
+
+  <!-- COVER SCREEN -->
+  <div id="cover">
+    <div class="brandmark"><div class="spine"></div><span>Varq</span></div>
+
+    <div class="book-object">
+      <div class="book-cover-art">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="1.5"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5v-17Z"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/></svg>
+        <div class="title-line"></div>
+        <div class="title-line" style="width:38%"></div>
+        <div class="cover-caption">Padhiye</div>
+      </div>
+    </div>
+
+    <h1 class="tagline">Apni PDF ko ek asli kitaab ki tarah padhein</h1>
+    <p class="subtag">Font, size aur theme apni marzi ki chuniye — page palatne ka wahi sukoon, ab mobile par.</p>
+
+    <label id="dropzone">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+      <span>PDF Upload Karein</span>
+      <input type="file" id="fileInput" accept="application/pdf">
+    </label>
+
+    <div id="loadProgress">
+      <div class="track"><div class="fill" id="loadFill"></div></div>
+      <div class="label" id="loadLabel">Padha ja raha hai…</div>
+    </div>
+  </div>
+
+  <!-- READER SCREEN -->
+  <div id="reader">
+    <div id="ribbonBar">
+      <button class="icon-btn" id="backBtn" aria-label="Wapas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div id="docTitle">Kitaab</div>
+      <button class="icon-btn" id="settingsBtn" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.16.6.6 1.09 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1Z"/></svg>
+      </button>
+    </div>
+
+    <div id="pageViewport">
+      <div id="pageClip">
+        <div id="columnsTrack"></div>
+        <div class="tap-zone left" id="tapLeft"></div>
+        <div class="tap-zone right" id="tapRight"></div>
+        <div id="curl"></div>
+      </div>
+    </div>
+
+    <div id="footerBar">
+      <div id="progressTrack"><div id="progressFill"></div></div>
+      <div id="footerLabels">
+        <span id="pageLabel">Page 1</span>
+        <span id="percentLabel">0%</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="overlay"></div>
+  <div id="settingsSheet">
+    <div class="grabber"></div>
+    <div class="sheet-title">Padhne ki Setting</div>
+
+    <div class="setting-group">
+      <div class="setting-label">Font Style</div>
+      <div class="font-grid" id="fontGrid"></div>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-label">Font Size</div>
+      <div class="stepper">
+        <button id="fontDec">−</button>
+        <div class="val" id="fontSizeVal">19px</div>
+        <button id="fontInc">+</button>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-label">Line Spacing</div>
+      <input type="range" id="lineHeightSlider" min="140" max="220" step="5" value="180">
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-label">Theme</div>
+      <div class="theme-row">
+        <div class="theme-swatch active" data-t="day">Din</div>
+        <div class="theme-swatch" data-t="sepia">Sepia</div>
+        <div class="theme-swatch" data-t="night">Raat</div>
+      </div>
+    </div>
+
+    <button id="closeSheetBtn">Ho Gaya</button>
+  </div>
+
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+const state = {
+  paragraphs: [],
+  fontFamily: "'Lora', serif",
+  fontSize: 19,
+  lineHeight: 1.8,
+  theme: 'day',
+  currentPage: 0,
+  totalPages: 1,
+  fileName: 'Kitaab'
+};
+
+const FONTS = [
+  {name:'Lora', label:'Lora', css:"'Lora', serif"},
+  {name:'Merriweather', label:'Merriweather', css:"'Merriweather', serif"},
+  {name:'Garamond', label:'Garamond', css:"'EB Garamond', serif"},
+  {name:'Crimson', label:'Crimson', css:"'Crimson Pro', serif"},
+  {name:'Georgia', label:'Georgia', css:"Georgia, serif"},
+  {name:'Hyperlegible', label:'Easy-Read', css:"'Atkinson Hyperlegible', sans-serif"},
+];
+
+const els = {
+  cover: document.getElementById('cover'),
+  reader: document.getElementById('reader'),
+  fileInput: document.getElementById('fileInput'),
+  dropzone: document.getElementById('dropzone'),
+  loadProgress: document.getElementById('loadProgress'),
+  loadFill: document.getElementById('loadFill'),
+  loadLabel: document.getElementById('loadLabel'),
+  columnsTrack: document.getElementById('columnsTrack'),
+  pageClip: document.getElementById('pageClip'),
+  docTitle: document.getElementById('docTitle'),
+  pageLabel: document.getElementById('pageLabel'),
+  percentLabel: document.getElementById('percentLabel'),
+  progressFill: document.getElementById('progressFill'),
+  progressTrack: document.getElementById('progressTrack'),
+  settingsBtn: document.getElementById('settingsBtn'),
+  backBtn: document.getElementById('backBtn'),
+  overlay: document.getElementById('overlay'),
+  settingsSheet: document.getElementById('settingsSheet'),
+  closeSheetBtn: document.getElementById('closeSheetBtn'),
+  fontGrid: document.getElementById('fontGrid'),
+  fontDec: document.getElementById('fontDec'),
+  fontInc: document.getElementById('fontInc'),
+  fontSizeVal: document.getElementById('fontSizeVal'),
+  lineHeightSlider: document.getElementById('lineHeightSlider'),
+  tapLeft: document.getElementById('tapLeft'),
+  tapRight: document.getElementById('tapRight'),
+};
+
+// ---- Build font picker ----
+FONTS.forEach(f=>{
+  const div = document.createElement('div');
+  div.className = 'font-option' + (f.css === state.fontFamily ? ' active':'');
+  div.innerHTML = `<span class="sample" style="font-family:${f.css}">Aa</span><span class="fname">${f.label}</span>`;
+  div.addEventListener('click', ()=>{
+    state.fontFamily = f.css;
+    document.querySelectorAll('.font-option').forEach(o=>o.classList.remove('active'));
+    div.classList.add('active');
+    applyReaderStyles();
+    paginate();
+  });
+  els.fontGrid.appendChild(div);
+});
+
+document.querySelectorAll('.theme-swatch').forEach(sw=>{
+  sw.addEventListener('click', ()=>{
+    state.theme = sw.dataset.t;
+    document.body.setAttribute('data-theme', state.theme);
+    document.querySelectorAll('.theme-swatch').forEach(s=>s.classList.remove('active'));
+    sw.classList.add('active');
+  });
+});
+
+els.fontDec.addEventListener('click', ()=>{
+  state.fontSize = Math.max(13, state.fontSize - 1);
+  els.fontSizeVal.textContent = state.fontSize + 'px';
+  applyReaderStyles(); paginate();
+});
+els.fontInc.addEventListener('click', ()=>{
+  state.fontSize = Math.min(30, state.fontSize + 1);
+  els.fontSizeVal.textContent = state.fontSize + 'px';
+  applyReaderStyles(); paginate();
+});
+els.lineHeightSlider.addEventListener('input', (e)=>{
+  state.lineHeight = e.target.value/100;
+  applyReaderStyles(); paginate();
+});
+
+function applyReaderStyles(){
+  els.columnsTrack.style.fontFamily = state.fontFamily;
+  els.columnsTrack.style.fontSize = state.fontSize + 'px';
+  els.columnsTrack.style.lineHeight = state.lineHeight;
+}
+
+els.settingsBtn.addEventListener('click', ()=>{
+  els.overlay.classList.add('open');
+  els.settingsSheet.classList.add('open');
+});
+function closeSheet(){
+  els.overlay.classList.remove('open');
+  els.settingsSheet.classList.remove('open');
+}
+els.closeSheetBtn.addEventListener('click', closeSheet);
+els.overlay.addEventListener('click', closeSheet);
+
+els.backBtn.addEventListener('click', ()=>{
+  els.reader.style.display = 'none';
+  els.cover.style.display = 'flex';
+});
+
+// ---- File handling ----
+els.dropzone.addEventListener('click', (e)=>{});
+els.fileInput.addEventListener('change', (e)=>{
+  const f = e.target.files[0];
+  if(f) loadPdf(f);
+});
+
+async function loadPdf(file){
+  state.fileName = file.name.replace(/\.pdf$/i,'');
+  els.loadProgress.style.display = 'block';
+  els.loadFill.style.width = '5%';
+  els.loadLabel.textContent = 'PDF khola ja raha hai…';
+
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+  const numPages = pdf.numPages;
+  let fullText = [];
+
+  for(let i=1;i<=numPages;i++){
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    let lastY = null, line = '';
+    let pageLines = [];
+    content.items.forEach(item=>{
+      if(lastY !== null && Math.abs(item.transform[5]-lastY) > 2){
+        pageLines.push(line);
+        line = '';
+      }
+      line += item.str;
+      lastY = item.transform[5];
+    });
+    if(line) pageLines.push(line);
+    fullText.push(pageLines.join(' '));
+    els.loadFill.style.width = Math.round((i/numPages)*90)+'%';
+    els.loadLabel.textContent = `Page ${i} / ${numPages} nikala ja raha hai…`;
+  }
+
+  // Merge into paragraphs (split on blank-ish breaks / long sentences)
+  const rawText = fullText.join('\n\n');
+  const paras = rawText
+    .split(/\n{1,}/)
+    .map(s=>s.trim())
+    .filter(s=>s.length>0);
+
+  state.paragraphs = paras.length ? paras : ['(Is PDF me text nahi mila — shayad yeh scan ki hui image hai.)'];
+
+  els.loadFill.style.width = '100%';
+  els.loadLabel.textContent = 'Taiyaar!';
+
+  setTimeout(()=>{
+    els.loadProgress.style.display = 'none';
+    els.loadFill.style.width = '0%';
+    openReader();
+  }, 300);
+}
+
+function openReader(){
+  els.docTitle.textContent = state.fileName;
+  els.cover.style.display = 'none';
+  els.reader.style.display = 'flex';
+  applyReaderStyles();
+  renderContent();
+  requestAnimationFrame(()=> requestAnimationFrame(paginate));
+}
+
+function renderContent(){
+  els.columnsTrack.innerHTML = state.paragraphs.map(p=>`<p>${escapeHtml(p)}</p>`).join('');
+}
+function escapeHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+let colWidth = 0;
+function paginate(){
+  const clip = els.pageClip;
+  const track = els.columnsTrack;
+  const cw = window.innerWidth >= 700 ? clip.clientWidth : clip.clientWidth;
+  const singleCol = window.innerWidth < 700;
+
+  track.style.height = clip.clientHeight + 'px';
+  track.style.width = cw + 'px';
+  track.style.columnWidth = singleCol ? cw + 'px' : ((cw-48)/2)+'px';
+  track.style.transform = 'translateX(0px)';
+
+  colWidth = cw;
+  const scrollW = track.scrollWidth;
+  state.totalPages = Math.max(1, Math.ceil(scrollW / cw));
+  if(state.currentPage >= state.totalPages) state.currentPage = state.totalPages - 1;
+  goToPage(state.currentPage);
+}
+
+function goToPage(n){
+  n = Math.max(0, Math.min(state.totalPages - 1, n));
+  state.currentPage = n;
+  els.columnsTrack.style.transform = `translateX(-${n * colWidth}px)`;
+  els.pageLabel.textContent = `Page ${n+1} / ${state.totalPages}`;
+  const pct = state.totalPages > 1 ? Math.round((n/(state.totalPages-1))*100) : 100;
+  els.percentLabel.textContent = pct + '%';
+  els.progressFill.style.width = pct + '%';
+}
+
+els.tapLeft.addEventListener('click', ()=> goToPage(state.currentPage - 1));
+els.tapRight.addEventListener('click', ()=> goToPage(state.currentPage + 1));
+
+// swipe support
+let touchStartX = null;
+els.pageClip.addEventListener('touchstart', e=>{ touchStartX = e.touches[0].clientX; }, {passive:true});
+els.pageClip.addEventListener('touchend', e=>{
+  if(touchStartX === null) return;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if(Math.abs(dx) > 40){
+    if(dx < 0) goToPage(state.currentPage + 1);
+    else goToPage(state.currentPage - 1);
+  }
+  touchStartX = null;
+}, {passive:true});
+
+document.addEventListener('keydown', e=>{
+  if(els.reader.style.display !== 'flex') return;
+  if(e.key === 'ArrowRight') goToPage(state.currentPage + 1);
+  if(e.key === 'ArrowLeft') goToPage(state.currentPage - 1);
+});
+
+els.progressTrack.addEventListener('click', (e)=>{
+  const rect = els.progressTrack.getBoundingClientRect();
+  const ratio = (e.clientX - rect.left) / rect.width;
+  goToPage(Math.round(ratio * (state.totalPages-1)));
+});
+
+window.addEventListener('resize', ()=>{
+  if(els.reader.style.display === 'flex') paginate();
+});
+</script>
+</body>
+</html>
